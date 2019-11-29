@@ -1,30 +1,33 @@
 package com.coding_cole.contentproviderexample;
 
+import android.Manifest;
 import android.content.ContentResolver;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.os.Build;
 import android.os.Bundle;
-
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
+import android.provider.ContactsContract;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import android.provider.ContactsContract;
-import android.util.Log;
-import android.view.View;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 	private static final String TAG = "MainActivity";
+	private static final int PERMISSIONS_REQUEST_READ_CONTACTS = 100;
+	private ListView contactNames;
 
-	private ListView contactsNames;
 
 
 	@Override
@@ -34,35 +37,64 @@ public class MainActivity extends AppCompatActivity {
 		Toolbar toolbar = findViewById(R.id.toolbar);
 		setSupportActionBar(toolbar);
 
-		contactsNames = (ListView) findViewById(R.id.contacts_name);
+		contactNames = (ListView) findViewById(R.id.contacts_name);
 
 		FloatingActionButton fab = findViewById(R.id.fab);
 		fab.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View view) {
 				Log.d(TAG, "fab onClick: starts");
-				String[] projection = {ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
-				ContentResolver contentResolver = getContentResolver();
-				Cursor cursor = contentResolver.query(ContactsContract.Contacts.CONTENT_URI,
-					projection,
-					null,
-					null,
-					ContactsContract.Contacts.DISPLAY_NAME_PRIMARY);
 
-				if(cursor != null) {
-					List<String> contacts = new ArrayList<String>();
-					while(cursor.moveToNext()) {
-						contacts.add(cursor.getString(cursor
-							.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY)));
-					}
-					cursor.close();
-					ArrayAdapter<String> adapter = new ArrayAdapter<String>
-						(MainActivity.this, R.layout.contact_detail, R.id.name,contacts);
-					contactsNames.setAdapter(adapter);
-				}
+				showContacts();
+
 				Log.d(TAG, "fab onClick: ends");
 			}
 		});
+	}
+
+	private void showContacts(){
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+			requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, PERMISSIONS_REQUEST_READ_CONTACTS);
+			//After this point you wait for callback in onRequestPermissionsResult(int, String[], int[]) override method
+		}else{
+			List<String> contacts = getContacts();
+			ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(MainActivity.this,R.layout.contact_detail,R.id.name,contacts);
+			contactNames.setAdapter(arrayAdapter);
+		}
+
+	}
+
+	private List<String> getContacts(){
+		List<String> contacts = new ArrayList<>();
+		String[] projections =  {ContactsContract.Contacts.DISPLAY_NAME_PRIMARY};
+		ContentResolver contentResolver = getContentResolver();
+		Cursor cursor = contentResolver.query(ContactsContract.Contacts.CONTENT_URI,
+			projections,
+			null,
+			null,
+			ContactsContract.Contacts.DISPLAY_NAME_PRIMARY);
+
+		if(cursor != null){
+			while (cursor.moveToNext()){
+				contacts.add(cursor.getString(cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)));
+			}
+
+			cursor.close();
+		}
+		return contacts;
+	}
+
+	@Override
+	public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+		if (requestCode == PERMISSIONS_REQUEST_READ_CONTACTS) {
+			if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+				// Permission is granted
+				showContacts();
+			} else {
+				Toast.makeText(this, "Until you grant the permission, we cannot display the names", Toast.LENGTH_SHORT).show();
+			}
+		}
 	}
 
 	@Override
